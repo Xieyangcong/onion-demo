@@ -183,6 +183,14 @@
   .up-opts input{padding:8px 10px; border:1px solid var(--line); border-radius:8px;
     background:var(--bg); color:var(--ink); font-family:var(--mono); font-size:13px}
   .up-opts input:focus{outline:none; border-color:var(--accent)}
+  .up-opts select{padding:8px 10px; border:1px solid var(--line); border-radius:8px;
+    background:var(--bg); color:var(--ink); font-family:var(--mono); font-size:13px; cursor:pointer}
+  .up-opts select:focus{outline:none; border-color:var(--accent)}
+  .up-opts .seg{display:flex; gap:0; border:1px solid var(--line); border-radius:8px; overflow:hidden}
+  .up-opts .seg button{flex:1; padding:7px 8px; border:none; background:var(--bg); cursor:pointer;
+    color:var(--ink-dim); font-family:var(--mono); font-size:12px; transition:.15s}
+  .up-opts .seg button.on{background:var(--accent-wash); color:var(--accent); font-weight:700}
+  .up-opts .seg button:not(:last-child){border-right:1px solid var(--line)}
   .run-btn{margin-top:2px; padding:11px 16px; border:none; border-radius:8px; cursor:pointer;
     background:linear-gradient(180deg,var(--accent),var(--accent-dim)); color:#fff;
     font-weight:700; font-size:14px; letter-spacing:.3px; transition:opacity .15s, transform .05s}
@@ -306,8 +314,24 @@
         <span class="dz-sub" id="dz-sub">最大 64MB · 仅在本次演示会话中处理</span>
       </label>
       <div class="up-opts">
-        <label>标签列（可选）<input type="text" id="opt-label" placeholder="留空=自动嗅探/无标签"></label>
-        <label>训练占比<input type="number" id="opt-frac" value="0.7" min="0.3" max="0.95" step="0.05"></label>
+        <label>任务类型
+          <select id="opt-task">
+            <option value="anomaly">异常检测 · 故障预警</option>
+            <option value="forecast">时序预测 · 未来外推</option>
+          </select>
+        </label>
+        <!-- 异常检测专属 -->
+        <label class="opt-anomaly">标签列（可选）<input type="text" id="opt-label" placeholder="留空=自动嗅探/无标签"></label>
+        <label class="opt-anomaly">训练占比<input type="number" id="opt-frac" value="0.7" min="0.3" max="0.95" step="0.05"></label>
+        <!-- 时序预测专属 -->
+        <label class="opt-forecast" hidden>目标列（可选）<input type="text" id="opt-col" placeholder="留空=自动取末数值列"></label>
+        <label class="opt-forecast" hidden>预测步长<input type="number" id="opt-horizon" value="24" min="1" max="512" step="1"></label>
+        <label class="opt-forecast" hidden>评估口径
+          <div class="seg" id="opt-mode">
+            <button type="button" data-mode="backtest" class="on">回测（留出真值 → MSE/MAE）</button>
+            <button type="button" data-mode="pure">纯预测（无真值 → 仅外推）</button>
+          </div>
+        </label>
         <button class="run-btn" id="run-btn" disabled>▶ 运行预警</button>
       </div>
     </div>
@@ -1682,6 +1706,24 @@ const DASH = {
   ['dragleave','drop'].forEach(ev=> dz.addEventListener(ev, e=>{e.preventDefault(); dz.classList.remove('drag');}));
   dz.addEventListener('drop', e=> choose(e.dataTransfer.files[0]));
 
+  // 任务类型切换：异常检测 ↔ 时序预测（切换专属选项 + 运行按钮文案）
+  const taskSel=$('opt-task');
+  let fcMode='backtest';  // 预测口径：backtest(留出真值) / pure(纯外推)
+  function syncTask(){
+    const t=taskSel.value;
+    document.querySelectorAll('.opt-anomaly').forEach(el=> el.hidden = (t!=='anomaly'));
+    document.querySelectorAll('.opt-forecast').forEach(el=> el.hidden = (t!=='forecast'));
+    runBtn.textContent = t==='forecast' ? '▶ 运行预测' : '▶ 运行预警';
+  }
+  taskSel.addEventListener('change', syncTask);
+  syncTask();
+  // 回测/纯预测分段开关
+  $('opt-mode').querySelectorAll('button').forEach(b=> b.addEventListener('click', ()=>{
+    fcMode=b.dataset.mode;
+    $('opt-mode').querySelectorAll('button').forEach(x=> x.classList.toggle('on', x===b));
+  }));
+
+
   function hide(el){ el.hidden = true; }
   function status(kind,msg,spin){
     statusEl.hidden=false; statusEl.className='up-status'+(kind?' '+kind:'');
@@ -1693,12 +1735,22 @@ const DASH = {
     if(!picked) return;
     if(!API){ status('err','后端未配置：请用 <code>?api=你的隧道地址</code> 打开本页。'); return; }
     runBtn.disabled=true; hide(resultEl);
-    status('', '正在上传并由 Onion 智能体真实推理（服务器端 IsolationForest，首次可能需十几秒）…', true);
+    const isFc = taskSel.value==='forecast';
+    status('', isFc
+      ? '正在上传并由 Onion 智能体真实推理（服务器端时序大模型 singo 外推，首次可能需十几秒）…'
+      : '正在上传并由 Onion 智能体真实推理（服务器端 IsolationForest，首次可能需十几秒）…', true);
     const fd = new FormData();
     fd.append('file', picked);
-    fd.append('task','anomaly');
-    fd.append('label_col', $('opt-label').value.trim());
-    fd.append('train_frac', $('opt-frac').value||'0.7');
+    if(isFc){
+      fd.append('task','forecast');
+      fd.append('target_column', $('opt-col').value.trim());
+      fd.append('horizon', $('opt-horizon').value||'24');
+      fd.append('pure_forecast', fcMode==='pure' ? 'true' : 'false');
+    }else{
+      fd.append('task','anomaly');
+      fd.append('label_col', $('opt-label').value.trim());
+      fd.append('train_frac', $('opt-frac').value||'0.7');
+    }
     try{
       const r = await fetch(API+'/predict', {method:'POST', body:fd});
       const j = await r.json();
@@ -1720,6 +1772,7 @@ const DASH = {
         '</b>（'+esc(j.triage?.reason||'')+'）。'+esc(j.hint||'')+'</div>';
       return;
     }
+    if(j.mode==='forecast'){ renderForecast(j); return; }
     const sm = j.supervised_metrics;
     let head = '<div class="ur-head">'+
       '<span class="ur-chip">setting <b>'+esc(j.setting||j.mode)+'</b></span>'+
@@ -1765,6 +1818,109 @@ const DASH = {
     note+='</div>';
 
     resultEl.innerHTML=head+metrics+viz+(table?'<div style="overflow-x:auto">'+table+'</div>':'')+note;
+  }
+
+  /* ===== 时序预测结果渲染：折线图 + 分位区间带（回测叠真值+MSE/MAE，纯预测仅外推） ===== */
+  function renderForecast(j){
+    resultEl.hidden=false;
+    const fc=j.forecast||{}, fm=j.forecast_metrics||{};
+    const backtest = j.has_truth && j.forecast_mode==='backtest';
+    const head='<div class="ur-head">'+
+      '<span class="ur-chip">任务 <b>时序预测</b></span>'+
+      '<span class="ur-chip">目标列 <b>'+esc(fc.column||'—')+'</b></span>'+
+      '<span class="ur-chip">步长 <b>'+esc(fc.horizon||'—')+'</b></span>'+
+      '<span class="ur-chip '+(backtest?'good':'warn')+'">'+(backtest?'回测 · 留出真值':'纯预测 · 无真值外推')+'</span>'+
+      '</div>';
+
+    // 误差指标（仅回测有真值时出；纯预测诚实留空）
+    let metrics='';
+    if(backtest && fm.model){
+      const m=fm.model;
+      const cells=[['mse','MSE'],['mae','MAE'],['rmse','RMSE'],['smape_pct','sMAPE']];
+      const skill=fm.rmse_skill_vs_persistence;
+      metrics='<div class="ur-metrics">'+cells.map(([k,l])=>
+        m[k]!=null?'<div class="ur-m"><div class="v">'+(k==='smape_pct'?(+m[k]).toFixed(2)+'%':(+m[k]).toFixed(4))+'</div><div class="l">'+l+'</div></div>':'').join('')+
+        (skill!=null?'<div class="ur-m"><div class="v">'+(skill*100).toFixed(1)+'%</div><div class="l">相对 persistence 改善</div></div>':'')+
+        '</div>';
+    }
+
+    // 折线图
+    const chart='<div class="ur-viz"><div class="vz span2"><h4>预测曲线 '+
+      (backtest?'<span class="vz-badge">RMSE '+((fm.model||{}).rmse!=null?(+fm.model.rmse).toFixed(4):'—')+'</span>':'')+'</h4>'+
+      '<p class="vh">'+(backtest
+        ? '蓝=历史尾段，绿=真值（留出段），橙=模型预测，阴影=10–90% 分位区间。'
+        : '蓝=历史尾段，橙=对未来的预测外推，阴影=10–90% 分位区间（无真值可对，不计误差）。')+'</p>'+
+      svgForecast(fc, backtest)+'</div></div>';
+
+    let note='<div class="ur-note">';
+    if(backtest) note+='<b>回测口径</b>：留出末段 '+esc(fc.horizon)+' 点作真值，仅用其之前历史预测，MSE/MAE/RMSE 由服务器端 <code>forecast_eval.py</code> 写入 forecast_metrics.json，本页不改一字。';
+    else note+='<b>纯预测口径</b>：'+esc(fm.note||'对未来的外推，无真值标签，未计算任何误差指标')+'。区间带来自模型分位输出。';
+    note+='</div>';
+
+    resultEl.innerHTML=head+metrics+chart+note;
+  }
+
+  function svgForecast(fc, backtest){
+    const hist=(fc.history_tail||[]).map(Number);
+    const pred=(fc.point_forecast||[]).map(Number);
+    const yt=backtest?(fc.y_true||[]).map(Number):[];
+    const ql=fc.quantile_levels||[], qf=fc.quantile_forecast;
+    // 分位带：取 10% / 90%（若存在）
+    let lo=[], hi=[];
+    if(qf && ql.length){
+      const iLo=ql.indexOf(0.1), iHi=ql.indexOf(0.9);
+      if(iLo>=0 && iHi>=0) for(let k=0;k<pred.length;k++){
+        const row=qf[k]||[]; lo.push(+row[iLo]); hi.push(+row[iHi]);
+      }
+    }
+    const nH=hist.length, nP=pred.length, N=nH+nP;
+    const W=760,H=300, P={l:48,r:16,t:16,b:40}, iw=W-P.l-P.r, ih=H-P.t-P.b;
+    // y 范围：涵盖所有序列
+    let all=hist.concat(pred, yt, lo, hi).filter(v=>isFinite(v));
+    let ymin=Math.min.apply(null,all), ymax=Math.max.apply(null,all);
+    if(ymax<=ymin) ymax=ymin+1e-9;
+    const pad=(ymax-ymin)*0.08; ymin-=pad; ymax+=pad;
+    const X=i=>P.l+(N<=1?0:i/(N-1))*iw;
+    const Y=v=>P.t+(1-(v-ymin)/(ymax-ymin))*ih;
+    const pathOf=(arr,off)=> arr.map((v,i)=>(i?'L':'M')+X(off+i).toFixed(1)+' '+Y(v).toFixed(1)).join(' ');
+    // 网格 + y 轴刻度
+    let g='';
+    for(let t=0;t<=4;t++){ const v=ymin+(ymax-ymin)*t/4, yy=Y(v);
+      g+='<line class="tick" x1="'+P.l+'" y1="'+yy.toFixed(1)+'" x2="'+(P.l+iw)+'" y2="'+yy.toFixed(1)+'"/>'+
+         '<text class="axis-t" x="'+(P.l-7)+'" y="'+(yy+3).toFixed(1)+'" text-anchor="end">'+v.toFixed(2)+'</text>'; }
+    // 预测起点竖线
+    const splitX=X(nH-0.5);
+    g+='<line x1="'+splitX.toFixed(1)+'" y1="'+P.t+'" x2="'+splitX.toFixed(1)+'" y2="'+(P.t+ih)+'" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4 3"/>'+
+       '<text class="axis-t" x="'+(splitX+5).toFixed(1)+'" y="'+(P.t+12)+'" fill="var(--muted)">预测起点</text>';
+    // 分位带（在预测段）
+    let band='';
+    if(lo.length===nP && hi.length===nP){
+      const up=hi.map((v,i)=>(i?'L':'M')+X(nH+i).toFixed(1)+' '+Y(v).toFixed(1)).join(' ');
+      const dn=lo.map((v,i)=>'L'+X(nH+(nP-1-i)).toFixed(1)+' '+Y(lo[nP-1-i]).toFixed(1)).join(' ');
+      band='<path d="'+up+' '+dn+' Z" fill="var(--warn)" opacity=".14" stroke="none"/>';
+    }
+    // 历史线（蓝）
+    const histPath='<path d="'+pathOf(hist,0)+'" fill="none" stroke="var(--accent)" stroke-width="2"/>';
+    // 预测线（橙）——从历史末点连出，视觉连续
+    const predArr=nH?[hist[nH-1]].concat(pred):pred;
+    const predOff=nH?nH-1:0;
+    const predPath='<path d="'+pathOf(predArr,predOff)+'" fill="none" stroke="var(--warn)" stroke-width="2.2"/>';
+    // 真值线（绿，仅回测）
+    let truePath='';
+    if(backtest && yt.length===nP){
+      const tArr=nH?[hist[nH-1]].concat(yt):yt;
+      truePath='<path d="'+pathOf(tArr,predOff)+'" fill="none" stroke="var(--good)" stroke-width="2" stroke-dasharray="1 0"/>';
+    }
+    const legend='<div class="legend" style="margin-top:6px">'+
+      '<span><i style="background:var(--accent)"></i>历史</span>'+
+      (backtest?'<span><i style="background:var(--good)"></i>真值</span>':'')+
+      '<span><i style="background:var(--warn)"></i>预测</span>'+
+      (lo.length?'<span><i style="background:var(--warn);opacity:.3"></i>10–90% 区间</span>':'')+'</div>';
+    return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="时序预测曲线">'+g+band+
+      '<line class="axis" x1="'+P.l+'" y1="'+P.t+'" x2="'+P.l+'" y2="'+(P.t+ih)+'"/>'+
+      '<line class="axis" x1="'+P.l+'" y1="'+(P.t+ih)+'" x2="'+(P.l+iw)+'" y2="'+(P.t+ih)+'"/>'+
+      histPath+truePath+predPath+
+      '<text class="axis-t" x="'+(P.l+iw/2)+'" y="'+(H-6)+'" text-anchor="middle">时间步（左=历史 · 右='+(backtest?'留出真值/预测':'未来预测')+'）</text></svg>'+legend;
   }
 
   /* ===== 四块分析图（判别能力曲线 / 混淆矩阵 / 异常分数分布 / 决策链），对齐示例大屏 ===== */
