@@ -1599,11 +1599,11 @@ const DASH = {
 
 /* ============ 上传数据集 · 后台 Onion 智能体自动预警 ============ */
 (function(){
-  // 后端地址来源优先级：URL ?api= > localStorage > 内置默认(隧道地址会变，重启后用 ?api= 覆盖)
-  const DEFAULT_API = 'https://contrary-wealth-rough-wrapping.trycloudflare.com';
+  // 后端地址来源优先级：URL ?api= > localStorage(仅当来自?api=) > api.json(隧道守护进程自动回写) > 内置兜底
+  // 免费隧道重启会换 URL，故常态由 GitHub 上的 api.json 提供当前地址，前端每次加载自动跟上。
+  const FALLBACK_API = 'https://contrary-wealth-rough-wrapping.trycloudflare.com';
   const qs = new URLSearchParams(location.search);
-  let API = qs.get('api') || localStorage.getItem('onion_api') || DEFAULT_API;
-  API = API.replace(/\/+$/,'');
+  let API = (qs.get('api') || localStorage.getItem('onion_api') || FALLBACK_API).replace(/\/+$/,'');
   if (qs.get('api')) { try{ localStorage.setItem('onion_api', API); }catch(e){} }
 
   const $ = id => document.getElementById(id);
@@ -1613,6 +1613,17 @@ const DASH = {
   let picked = null;
 
   function setBadge(state, text){ badge.className='badge '+state; badge.textContent=text; }
+
+  // 从同目录 api.json 读取当前隧道地址（守护进程自动回写）。显式 ?api= 优先，不被覆盖。
+  async function resolveApi(){
+    if (qs.get('api')) return;   // 用户显式指定，尊重之
+    try{
+      const r = await fetch('api.json?_=' + Date.now(), {cache:'no-store'});
+      if(!r.ok) return;
+      const j = await r.json();
+      if(j && j.api){ API = String(j.api).replace(/\/+$/,''); }
+    }catch(e){/* api.json 不存在则用兜底 */}
+  }
 
   // 后端健康探测
   async function probe(){
@@ -1626,7 +1637,7 @@ const DASH = {
     setBadge('off','后端：离线（可先看历史 run 大屏）');
     return false;
   }
-  probe();
+  resolveApi().then(probe);
 
   // 文件选择 / 拖拽
   function choose(f){
