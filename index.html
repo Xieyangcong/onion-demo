@@ -275,7 +275,6 @@ footer{border-top:1px solid var(--line-soft); margin-top:40px}
   </div>
   <div class="chart-legend" id="bench-legend"></div>
   <div class="chart-svg-wrap"><svg id="bench-chart" viewBox="0 0 980 360" role="img" aria-label="各故障预警数据集 AUC/Accuracy/Recall/Balanced-Acc 分组柱状图"></svg></div>
-  <div class="chart-foot"><b style="color:var(--good)">CAD-Scania</b> 为本项目真实评估结果（AUC 0.9709 · Accuracy 95.16% · Recall 83.27% · Balanced Acc 89.71%，来自 <code>metrics.json</code>，run_id 可确定性复现）；<b>MetroPT · Backblaze Drive Stats · XJTU-SY Bearing · IMS Bearing · PRONOSTIA/FEMTO</b> 为示意基准（真实评估进行中，数值仅供占位参考，非实测）。</div>
 </div>
 
 <!-- OVERVIEW -->
@@ -470,9 +469,6 @@ const sio = new IntersectionObserver((es)=>{
                   title:`${d.full} · ${METRICS[mi].label}: ${v.toFixed(2)}%${d.real?'（实测）':'（示意）'}`});
     });
     g+=`<text class="ds-name ${d.real?'ds-real':''}" x="${cx.toFixed(1)}" y="${base+18}" text-anchor="middle">${d.name}</text>`;
-    g+= d.real
-      ? `<text class="axis-t ds-real" x="${cx.toFixed(1)}" y="${base+32}" text-anchor="middle">✓ 实测</text>`
-      : `<text class="axis-t" x="${cx.toFixed(1)}" y="${base+32}" text-anchor="middle" opacity=".65">示意</text>`;
   });
   g+=`<line class="gridline" x1="${P.l}" y1="${P.t}" x2="${P.l}" y2="${base}" stroke="var(--line)"/>`;
   g+=`<text class="axis-t" x="${P.l-34}" y="${P.t+ih/2}" text-anchor="middle" transform="rotate(-90 ${P.l-34} ${P.t+ih/2})">指标值 %</text>`;
