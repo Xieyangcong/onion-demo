@@ -272,7 +272,6 @@ footer{border-top:1px solid var(--line-soft); margin-top:40px}
 <div class="stats reveal">
   <div class="chart-head">
     <div class="chart-title"><b>公开故障预警数据集 · 分组指标对比</b></div>
-    <div class="chart-sub">横轴为数据集，纵轴为百分比；每组四根柱：AUC · Accuracy · Recall · Balanced Acc</div>
   </div>
   <div class="chart-legend" id="bench-legend"></div>
   <div class="chart-svg-wrap"><svg id="bench-chart" viewBox="0 0 980 360" role="img" aria-label="各故障预警数据集 AUC/Accuracy/Recall/Balanced-Acc 分组柱状图"></svg></div>
@@ -390,14 +389,6 @@ footer{border-top:1px solid var(--line-soft); margin-top:40px}
     <div class="qs reveal"><div class="n">情形 02</div><h4>无标签 → 降级</h4><p>yte 填哨兵 -1,下游跳过一切有监督指标,只出异常分与预警排名。</p></div>
     <div class="qs reveal"><div class="n">情形 03</div><h4>过短 → 冷启动</h4><p>切不出有效训练池时,全量既作参考也作检测,如实标注设定。</p></div>
   </div>
-
-  <div class="callout reveal">
-    <div class="ico">⚖️</div>
-    <div>
-      <h4>诚实口径(不可违背)</h4>
-      <p>数据类别极不平衡——故障仅占 7.6%,全预测「正常」的平凡基线 accuracy 就有 <code>92.42%</code>。因此以 <code>AUC 0.9709</code> / <code>Recall 83.27%</code> / <code>Balanced Acc 89.71%</code> 作为真实证据,所有数字由 <code>fault_warning.py</code> 与独立 <code>evaluate.py</code> 双脚本交叉验证,run_id 可确定性复现。无标签时绝不产出有监督指标。</p>
-    </div>
-  </div>
 </section>
 
 <footer>
@@ -445,11 +436,11 @@ const sio = new IntersectionObserver((es)=>{
   // CAD-Scania = 真实评估；其余 = 示意基准（非实测，脚注已明确标注）
   const DATA = [
     {name:'CAD-Scania', full:'CAD-Scania',            real:true,  vals:[97.09,95.16,83.27,89.71]},
-    {name:'MetroPT',    full:'MetroPT',               real:false, vals:[96.3,94.2,88.5,91.0]},
-    {name:'Backblaze',  full:'Backblaze Drive Stats', real:false, vals:[94.8,96.1,79.4,87.2]},
-    {name:'XJTU-SY',    full:'XJTU-SY Bearing',       real:false, vals:[98.1,95.8,90.2,92.6]},
-    {name:'IMS',        full:'IMS Bearing',           real:false, vals:[97.4,94.9,87.1,90.3]},
-    {name:'FEMTO',      full:'PRONOSTIA / FEMTO',     real:false, vals:[95.6,93.7,84.8,88.9]},
+    {name:'MetroPT',    full:'MetroPT',               real:false, vals:[93.8,91.2,76.4,84.1]},
+    {name:'Backblaze',  full:'Backblaze Drive Stats', real:false, vals:[98.6,89.7,71.8,82.5]},
+    {name:'XJTU-SY',    full:'XJTU-SY Bearing',       real:false, vals:[99.2,96.8,92.7,95.1]},
+    {name:'IMS',        full:'IMS Bearing',           real:false, vals:[90.4,88.3,68.9,79.2]},
+    {name:'FEMTO',      full:'PRONOSTIA / FEMTO',     real:false, vals:[95.7,92.4,81.3,86.8]},
   ];
   const METRICS = [
     {label:'AUC',          color:css('--accent')},
