@@ -1,4 +1,4 @@
-<title>CastCodex 故障预警大屏</title>
+<title>Onion 故障预警大屏</title>
 <style>
   :root{
     color-scheme: dark;
@@ -157,13 +157,71 @@
     .kpis{grid-template-columns:repeat(2,1fr)}
     .grid{grid-template-columns:1fr}
   }
+
+  /* ---- upload card ---- */
+  .upload-card{margin-bottom:18px; position:relative; overflow:hidden}
+  .upload-card::before{content:""; position:absolute; inset:0;
+    background:radial-gradient(600px 200px at 90% -20%, var(--accent-wash), transparent 70%);
+    pointer-events:none}
+  #up-backend{font-family:var(--mono); font-size:11px}
+  #up-backend.on{color:var(--good); border-color:var(--good)}
+  #up-backend.off{color:var(--muted)}
+  #up-backend.busy{color:var(--warn); border-color:var(--warn)}
+  .up-row{display:grid; grid-template-columns:1.4fr 1fr; gap:16px; margin-top:6px}
+  .dropzone{display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:6px; min-height:132px; padding:18px; cursor:pointer;
+    border:1.5px dashed var(--line); border-radius:var(--r);
+    background:var(--panel-2); transition:border-color .18s, background .18s}
+  .dropzone:hover,.dropzone.drag{border-color:var(--accent); background:var(--accent-wash)}
+  .dz-icon{font-size:26px; color:var(--accent)}
+  .dz-text{font-weight:600; color:var(--ink)}
+  .dz-sub{font-size:12px; color:var(--muted)}
+  .dropzone.has-file .dz-text{color:var(--good)}
+  .up-opts{display:flex; flex-direction:column; gap:10px; justify-content:center}
+  .up-opts label{display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--ink-dim)}
+  .up-opts input{padding:8px 10px; border:1px solid var(--line); border-radius:8px;
+    background:var(--bg); color:var(--ink); font-family:var(--mono); font-size:13px}
+  .up-opts input:focus{outline:none; border-color:var(--accent)}
+  .run-btn{margin-top:2px; padding:11px 16px; border:none; border-radius:8px; cursor:pointer;
+    background:linear-gradient(180deg,var(--accent),var(--accent-dim)); color:#fff;
+    font-weight:700; font-size:14px; letter-spacing:.3px; transition:opacity .15s, transform .05s}
+  .run-btn:hover:not(:disabled){opacity:.92}
+  .run-btn:active:not(:disabled){transform:translateY(1px)}
+  .run-btn:disabled{opacity:.4; cursor:not-allowed}
+  .up-status{margin-top:14px; padding:12px 14px; border-radius:8px; font-size:13px;
+    border:1px solid var(--line); background:var(--panel-2); display:flex; align-items:center; gap:10px}
+  .up-status .spin{width:14px; height:14px; border:2px solid var(--line);
+    border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; flex:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .up-status.err{border-color:var(--crit); color:#f5b6b0; background:var(--crit-wash)}
+  .up-status.ok{border-color:var(--good); color:#bfe9d4; background:var(--good-wash)}
+  .up-result{margin-top:14px}
+  .ur-head{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px}
+  .ur-chip{font-family:var(--mono); font-size:12px; padding:4px 10px; border-radius:20px;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--ink-dim)}
+  .ur-chip b{color:var(--ink)}
+  .ur-chip.good{border-color:var(--good); color:#bfe9d4}
+  .ur-chip.warn{border-color:var(--warn); color:#f5d29a}
+  .ur-metrics{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-bottom:14px}
+  .ur-m{padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--panel-2)}
+  .ur-m .v{font-family:var(--mono); font-size:20px; font-weight:600; color:var(--accent)}
+  .ur-m .l{font-size:11px; color:var(--muted); margin-top:2px}
+  .ur-table{width:100%; border-collapse:collapse; font-size:13px}
+  .ur-table th{text-align:left; color:var(--muted); font-weight:600; font-size:11px;
+    padding:6px 8px; border-bottom:1px solid var(--line)}
+  .ur-table td{padding:7px 8px; border-bottom:1px solid var(--line-soft); font-family:var(--mono)}
+  .ur-bar{height:6px; border-radius:3px; background:var(--line); overflow:hidden; margin-top:3px}
+  .ur-bar i{display:block; height:100%; background:linear-gradient(90deg,var(--warn),var(--crit))}
+  .ur-note{margin-top:12px; font-size:12px; color:var(--muted); line-height:1.6}
+  .ur-note b{color:var(--ink-dim)}
+  @media (max-width:820px){ .up-row{grid-template-columns:1fr} }
 </style>
 
 <div class="wrap">
   <!-- TOP BAR -->
   <div class="top">
     <div class="brand">
-      <span class="mark">Cast<b>Codex</b></span>
+      <span class="mark">Oni<b>on</b></span>
       <span class="sub">· 时序基础模型驱动的工业故障预警智能体</span>
     </div>
     <div class="spacer"></div>
@@ -176,6 +234,33 @@
   <!-- KPIS -->
   <p class="eyebrow">核心指标 · Test 集 <span id="m-ntest"></span> 条</p>
   <div class="kpis" id="kpis"></div>
+
+  <!-- UPLOAD · 上传数据集 → 后台 Onion 智能体自动预警 -->
+  <div class="card upload-card" id="upload-card">
+    <h3>上传数据集 · 智能体自动预警
+      <span class="badge" id="up-backend">后端：探测中…</span>
+    </h3>
+    <p class="hint">
+      拖入或选择一个时序 CSV（宽表：每列一个传感器/特征；可含名为 <code>label</code> 的 0/1 故障列）。
+      后台 <b>Onion 智能体</b>（服务器端 IsolationForest 半监督，与 TimesFM 同机）将真实跑一遍并给出故障预警排名。
+      <b>无标签自动降级为无监督</b>，只出异常分排名、不报 AUC/recall（诚实口径）。
+    </p>
+    <div class="up-row">
+      <label class="dropzone" id="dropzone">
+        <input type="file" id="file-input" accept=".csv,text/csv" hidden>
+        <span class="dz-icon">⤴</span>
+        <span class="dz-text" id="dz-text">点击选择或把 CSV 拖到这里</span>
+        <span class="dz-sub" id="dz-sub">最大 64MB · 仅在本次演示会话中处理</span>
+      </label>
+      <div class="up-opts">
+        <label>标签列（可选）<input type="text" id="opt-label" placeholder="留空=自动嗅探/无标签"></label>
+        <label>训练占比<input type="number" id="opt-frac" value="0.7" min="0.3" max="0.95" step="0.05"></label>
+        <button class="run-btn" id="run-btn" disabled>▶ 运行预警</button>
+      </div>
+    </div>
+    <div class="up-status" id="up-status" hidden></div>
+    <div class="up-result" id="up-result" hidden></div>
+  </div>
 
   <!-- MAIN GRID -->
   <div class="grid">
@@ -1474,5 +1559,132 @@ const DASH = {
     `<b>Recall ${pct(k.recall)}</b> / <b>Balanced Acc ${pct(k.balanced_accuracy)}</b> 作为真实证据，`+
     `所有数字由 <code>fault_warning.py</code> 与独立 <code>evaluate.py</code> 双脚本交叉验证，`+
     `run_id=spec_hash=<code>${meta.run_id}</code> 可确定性复现。`;
+})();
+
+/* ============ 上传数据集 · 后台 Onion 智能体自动预警 ============ */
+(function(){
+  // 后端地址来源优先级：URL ?api= > localStorage > 内置默认(隧道地址会变，重启后用 ?api= 覆盖)
+  const DEFAULT_API = 'https://contrary-wealth-rough-wrapping.trycloudflare.com';
+  const qs = new URLSearchParams(location.search);
+  let API = qs.get('api') || localStorage.getItem('onion_api') || DEFAULT_API;
+  API = API.replace(/\/+$/,'');
+  if (qs.get('api')) { try{ localStorage.setItem('onion_api', API); }catch(e){} }
+
+  const $ = id => document.getElementById(id);
+  const badge = $('up-backend'), dz = $('dropzone'), fi = $('file-input'),
+        dzText = $('dz-text'), runBtn = $('run-btn'),
+        statusEl = $('up-status'), resultEl = $('up-result');
+  let picked = null;
+
+  function setBadge(state, text){ badge.className='badge '+state; badge.textContent=text; }
+
+  // 后端健康探测
+  async function probe(){
+    if(!API){ setBadge('off','后端：未配置（本页 ?api=URL 注入）'); return false; }
+    setBadge('busy','后端：连接中…');
+    try{
+      const r = await fetch(API+'/health', {method:'GET'});
+      const j = await r.json();
+      if(j.status==='ok'){ setBadge('on','后端：在线'+(j.timesfm?' · TimesFM✓':'')); return true; }
+    }catch(e){}
+    setBadge('off','后端：离线（可先看历史 run 大屏）');
+    return false;
+  }
+  probe();
+
+  // 文件选择 / 拖拽
+  function choose(f){
+    if(!f) return;
+    if(!/\.csv$/i.test(f.name) && f.type!=='text/csv'){ status('err','请选择 CSV 文件'); return; }
+    picked = f; dz.classList.add('has-file');
+    dzText.textContent = f.name+'  ('+(f.size/1024).toFixed(0)+' KB)';
+    runBtn.disabled = false; hide(statusEl); hide(resultEl);
+  }
+  fi.addEventListener('change', e=> choose(e.target.files[0]));
+  ['dragenter','dragover'].forEach(ev=> dz.addEventListener(ev, e=>{e.preventDefault(); dz.classList.add('drag');}));
+  ['dragleave','drop'].forEach(ev=> dz.addEventListener(ev, e=>{e.preventDefault(); dz.classList.remove('drag');}));
+  dz.addEventListener('drop', e=> choose(e.dataTransfer.files[0]));
+
+  function hide(el){ el.hidden = true; }
+  function status(kind,msg,spin){
+    statusEl.hidden=false; statusEl.className='up-status'+(kind?' '+kind:'');
+    statusEl.innerHTML=(spin?'<span class="spin"></span>':'')+msg;
+  }
+
+  // 运行预警
+  runBtn.addEventListener('click', async ()=>{
+    if(!picked) return;
+    if(!API){ status('err','后端未配置：请用 <code>?api=你的隧道地址</code> 打开本页。'); return; }
+    runBtn.disabled=true; hide(resultEl);
+    status('', '正在上传并由 Onion 智能体真实推理（服务器端 IsolationForest，首次可能需十几秒）…', true);
+    const fd = new FormData();
+    fd.append('file', picked);
+    fd.append('task','anomaly');
+    fd.append('label_col', $('opt-label').value.trim());
+    fd.append('train_frac', $('opt-frac').value||'0.7');
+    try{
+      const r = await fetch(API+'/predict', {method:'POST', body:fd});
+      const j = await r.json();
+      if(!j.ok){ status('err','推理失败：'+(j.error||'未知')+(j.failed_at?'（阶段：'+j.failed_at+'）':'')); runBtn.disabled=false; return; }
+      render(j);
+      status('ok','✓ 完成 · 用时 '+(j.elapsed_s??'?')+'s · run_id='+(j.run_id||'—'));
+    }catch(e){
+      status('err','请求出错：'+e.message+'（后端可能离线或隧道已变）');
+    }
+    runBtn.disabled=false;
+  });
+
+  function esc(s){ return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+  function render(j){
+    resultEl.hidden=false;
+    if(j.mode==='suggest-only'){
+      resultEl.innerHTML='<div class="ur-note">分诊建议：<b>'+esc(j.triage?.suggestion||'?')+
+        '</b>（'+esc(j.triage?.reason||'')+'）。'+esc(j.hint||'')+'</div>';
+      return;
+    }
+    const sm = j.supervised_metrics;
+    let head = '<div class="ur-head">'+
+      '<span class="ur-chip">setting <b>'+esc(j.setting||j.mode)+'</b></span>'+
+      '<span class="ur-chip '+(j.has_labels?'good':'warn')+'">'+(j.has_labels?'有真值标签':'无标签 · 无监督降级')+'</span>'+
+      (j.threshold!=null?'<span class="ur-chip">阈值 <b>'+(+j.threshold).toFixed(4)+'</b></span>':'')+
+      '</div>';
+
+    let metrics='';
+    if(sm){
+      const cells=[['auc','AUC'],['recall','Recall'],['precision','Precision'],
+                   ['f1','F1'],['balanced_accuracy','Balanced Acc'],['accuracy','Accuracy']];
+      metrics='<div class="ur-metrics">'+cells.map(([k,l])=>
+        sm[k]!=null?'<div class="ur-m"><div class="v">'+(k==='auc'||k==='f1'? (+sm[k]).toFixed(4):((+sm[k]*100).toFixed(1)+'%'))+'</div><div class="l">'+l+'</div></div>':'').join('')+'</div>';
+    } else if(j.unsupervised){
+      const u=j.unsupervised;
+      metrics='<div class="ur-metrics">'+
+        '<div class="ur-m"><div class="v">'+(u.n_alarm??'—')+'</div><div class="l">预警数 n_alarm</div></div>'+
+        '<div class="ur-m"><div class="v">'+(u.alarm_rate!=null?(u.alarm_rate*100).toFixed(2)+'%':'—')+'</div><div class="l">预警率</div></div>'+
+        '<div class="ur-m"><div class="v">'+(u.n_test??'—')+'</div><div class="l">检测样本数</div></div>'+
+        '</div>';
+    }
+
+    // 预警排名表
+    let table='';
+    const tc=j.top_cases||[];
+    if(tc.length){
+      const mx=Math.max.apply(null, tc.map(c=>c.score))||1;
+      table='<table class="ur-table"><thead><tr><th>排名</th><th>样本 idx</th><th>异常分</th><th>判定</th></tr></thead><tbody>'+
+        tc.map((c,i)=>'<tr><td>#'+(i+1)+'</td><td>'+c.idx+'</td>'+
+          '<td>'+c.score.toFixed(4)+'<div class="ur-bar"><i style="width:'+(c.score/mx*100).toFixed(0)+'%"></i></div></td>'+
+          '<td>'+(c.label===1?'<span style="color:var(--crit)">故障(真阳)</span>':
+                  c.label===0?'<span style="color:var(--good)">正常(误报)</span>':
+                  '<span style="color:var(--warn)">预警(无真值)</span>')+'</td></tr>').join('')+
+        '</tbody></table>';
+    }
+
+    let note='<div class="ur-note">';
+    if(sm) note+='<b>真实有监督评估</b>：指标由服务器端 <code>fault_warning.py</code>/<code>evaluate.py</code> 写入 metrics.json，本页不改一字。类别不平衡下 AUC/Recall/F1 为核心证据。';
+    else note+='<b>无监督诚实口径</b>：'+esc(j.unsupervised?.note||'无真值标签，未计算任何有监督指标')+'。仅按异常分给出预警排名。';
+    note+='</div>';
+
+    resultEl.innerHTML=head+metrics+(table?'<div style="overflow-x:auto">'+table+'</div>':'')+note;
+  }
 })();
 </script>
