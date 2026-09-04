@@ -1742,9 +1742,8 @@ const DASH = {
         '</div>';
     }
 
-    // 有标签 → 复用示例大屏的四块分析图（数据均来自后端真实产物）
-    let viz='';
-    if(sm){ viz=buildViz(j, sm); }
+    // 分析图：有标签→四块全出；无标签→只出能真实获取的(异常分数分布+决策链)
+    let viz=buildViz(j, sm);
 
     // 预警排名表
     let table='';
@@ -1771,9 +1770,9 @@ const DASH = {
   /* ===== 四块分析图（判别能力曲线 / 混淆矩阵 / 异常分数分布 / 决策链），对齐示例大屏 ===== */
   function buildViz(j, sm){
     const parts=[];
-    const cur=j.curves, sh=j.score_hist, chain=j.decision_chain, cm=sm.confusion;
-    // 1) 判别能力曲线：ROC + PR
-    if(cur && cur.roc && cur.pr){
+    const cur=j.curves, sh=j.score_hist, chain=j.decision_chain, cm=sm && sm.confusion;
+    // 1) 判别能力曲线：ROC + PR（仅有真值标签时后端才产出 curves）
+    if(sm && cur && cur.roc && cur.pr){
       const roc=svgROC(cur.roc, +sm.auc);
       const prev=(j.prevalence!=null)?+j.prevalence:(cm?(cm.tp+cm.fn)/(cm.tn+cm.fp+cm.fn+cm.tp):0);
       const pr=svgPR(cur.pr, +sm.ap, prev);
@@ -1793,10 +1792,13 @@ const DASH = {
         '<div class="cell tn"><div class="cv">'+cm.tn.toLocaleString()+'</div><div class="cl">TN 正常正确</div></div>'+
         '</div></div>');
     }
-    // 3) 异常分数分布
+    // 3) 异常分数分布（有无标签均可：有标签拆正常/故障两组，无标签单组全体）
     if(sh && sh.centers && (sh.normal||sh.all)){
-      parts.push('<div class="vz"><h4>异常分数分布</h4>'+
-        '<p class="vh">正常（绿）与故障（红）的异常分直方，虚线为预警阈值。</p>'+
+      const twoGroup=!!(sh.normal && sh.fault);
+      const vh=twoGroup?'正常（绿）与故障（红）的异常分直方，虚线为预警阈值。'
+                       :'全体样本的异常分直方（无真值标签，不分组），虚线为预警阈值。';
+      parts.push('<div class="vz'+(cm?'':' span2')+'"><h4>异常分数分布</h4>'+
+        '<p class="vh">'+vh+'</p>'+
         svgHist(sh)+'</div>');
     }
     // 4) 智能体决策链
@@ -1885,7 +1887,7 @@ const DASH = {
       '<line class="axis" x1="'+P.l+'" y1="'+P.t+'" x2="'+P.l+'" y2="'+(P.t+ih)+'"/>'+
       '<line class="axis" x1="'+P.l+'" y1="'+(P.t+ih)+'" x2="'+(P.l+iw)+'" y2="'+(P.t+ih)+'"/>'+
       '<text class="axis-t" x="'+(P.l+iw)+'" y="'+(P.t+10)+'" text-anchor="end" fill="var(--crit)">预警区 →</text>'+
-      '<text class="axis-t" x="'+(P.l+iw/2)+'" y="'+(H-4)+'" text-anchor="middle">异常分（log 计数） · 绿正常 / 红故障</text></svg>';
+      '<text class="axis-t" x="'+(P.l+iw/2)+'" y="'+(H-4)+'" text-anchor="middle">异常分（log 计数）'+(fault.length?' · 绿正常 / 红故障':' · 全体样本')+'</text></svg>';
   }
 })();
 </script>
