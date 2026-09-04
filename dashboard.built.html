@@ -215,6 +215,19 @@
   .ur-note{margin-top:12px; font-size:12px; color:var(--muted); line-height:1.6}
   .ur-note b{color:var(--ink-dim)}
   @media (max-width:820px){ .up-row{grid-template-columns:1fr} }
+  /* ---- empty state (上传前占位) ---- */
+  .empty-state{display:flex; align-items:center; gap:18px; margin-bottom:18px;
+    border-style:dashed; border-color:var(--line); background:var(--panel)}
+  .empty-state .es-icon{font-size:30px; line-height:1; flex:none; opacity:.8}
+  .empty-state .es-body{flex:1 1 auto}
+  .empty-state .es-body h3{margin:0 0 4px; font-size:15px}
+  .empty-state .es-body p{margin:0; font-size:12.5px; color:var(--muted); line-height:1.6}
+  .empty-state .es-body b{color:var(--ink-dim)}
+  .empty-state .es-btn{flex:none; font-family:var(--mono); font-size:12px; cursor:pointer;
+    color:var(--accent); background:transparent; border:1px solid var(--accent-dim);
+    padding:9px 14px; border-radius:8px; transition:.15s}
+  .empty-state .es-btn:hover{background:var(--accent-wash); border-color:var(--accent)}
+  @media (max-width:820px){ .empty-state{flex-direction:column; align-items:flex-start} }
 </style>
 
 <div class="wrap">
@@ -225,15 +238,25 @@
       <span class="sub">· 时序基础模型驱动的工业故障预警智能体</span>
     </div>
     <div class="spacer"></div>
-    <div class="meta-chip"><span>数据源</span> CAD-Scania</div>
-    <div class="meta-chip"><span>run_id</span> <span id="m-rid">—</span></div>
-    <div class="meta-chip"><span>模型</span> IsolationForest · 半监督</div>
-    <div class="status"><span class="dot"></span><span id="m-status">TARGET MET</span></div>
+    <div class="meta-chip demo-metric" hidden><span>数据源</span> CAD-Scania</div>
+    <div class="meta-chip demo-metric" hidden><span>run_id</span> <span id="m-rid">—</span></div>
+    <div class="meta-chip demo-metric" hidden><span>模型</span> IsolationForest · 半监督</div>
+    <div class="status demo-metric" hidden><span class="dot"></span><span id="m-status">TARGET MET</span></div>
   </div>
 
-  <!-- KPIS -->
-  <p class="eyebrow">核心指标 · Test 集 <span id="m-ntest"></span> 条</p>
-  <div class="kpis" id="kpis"></div>
+  <!-- KPIS（示例 · 默认隐藏，上传前不展示指标） -->
+  <p class="eyebrow demo-metric" hidden>核心指标 · Test 集 <span id="m-ntest"></span> 条</p>
+  <div class="kpis demo-metric" id="kpis" hidden></div>
+
+  <!-- EMPTY STATE · 上传前占位 -->
+  <div class="card empty-state" id="metrics-placeholder">
+    <div class="es-icon">📊</div>
+    <div class="es-body">
+      <h3>尚未上传数据集</h3>
+      <p>上传并运行后，故障预警结果将显示在下方<b>结果面板</b>。想先感受一下大屏效果，可查看内置示例分析。</p>
+    </div>
+    <button class="es-btn" id="show-sample-btn">查看示例大屏 (CAD-Scania)</button>
+  </div>
 
   <!-- UPLOAD · 上传数据集 → 后台 Onion 智能体自动预警 -->
   <div class="card upload-card" id="upload-card">
@@ -242,7 +265,7 @@
     </h3>
     <p class="hint">
       拖入或选择一个时序 CSV（宽表：每列一个传感器/特征；可含名为 <code>label</code> 的 0/1 故障列）。
-      后台 <b>Onion 智能体</b>（服务器端 IsolationForest 半监督，与 TimesFM 同机）将真实跑一遍并给出故障预警排名。
+      后台 <b>Onion 智能体</b>（服务器端 IsolationForest 半监督，与自研时序大模型 singo 同机）将真实跑一遍并给出故障预警排名。
       <b>无标签自动降级为无监督</b>，只出异常分排名、不报 AUC/recall（诚实口径）。
     </p>
     <div class="up-row">
@@ -262,8 +285,8 @@
     <div class="up-result" id="up-result" hidden></div>
   </div>
 
-  <!-- MAIN GRID -->
-  <div class="grid">
+  <!-- MAIN GRID（示例 · 默认隐藏） -->
+  <div class="grid demo-metric" hidden>
     <div class="col">
       <div class="card">
         <h3>判别能力曲线 <span class="badge" id="b-auc">AUC —</span></h3>
@@ -317,8 +340,8 @@
     </div>
   </div>
 
-  <!-- TOP CASES -->
-  <div class="card" style="margin-top:16px">
+  <!-- TOP CASES（示例 · 默认隐藏） -->
+  <div class="card demo-metric" style="margin-top:16px" hidden>
     <h3>最高风险样本 Top 12 <span class="badge">异常分排序</span></h3>
     <p class="hint">检测器打分最高的样本；红点为真实故障，灰点为误报（假警）。</p>
     <table>
@@ -327,7 +350,7 @@
     </table>
   </div>
 
-  <div class="foot-note" id="note"></div>
+  <div class="foot-note demo-metric" id="note" hidden></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ibm-plex/6.4.1/css/ibm-plex.min.css" onerror="this.remove()"></script>
@@ -1397,7 +1420,7 @@ const DASH = {
     },
     {
       "agent": "Forecaster",
-      "action": "TimesFM \u5206\u4f4d\u6570\u533a\u95f4 + IsolationForest \u5efa\u6a21\uff1b\u589e\u5f3a\u7279\u5f81 0 \u7ef4"
+      "action": "singo \u5206\u4f4d\u6570\u533a\u95f4 + IsolationForest \u5efa\u6a21\uff1b\u589e\u5f3a\u7279\u5f81 0 \u7ef4"
     },
     {
       "agent": "Forecaster",
@@ -1561,6 +1584,19 @@ const DASH = {
     `run_id=spec_hash=<code>${meta.run_id}</code> 可确定性复现。`;
 })();
 
+/* ============ 示例大屏显隐（上传前不显示指标） ============ */
+(function(){
+  const $ = id => document.getElementById(id);
+  const btn = $('show-sample-btn'), ph = $('metrics-placeholder');
+  let shown = false;
+  function setDemo(vis){
+    document.querySelectorAll('.demo-metric').forEach(el => { el.hidden = !vis; });
+    shown = vis;
+    btn.textContent = vis ? '收起示例大屏' : '查看示例大屏 (CAD-Scania)';
+  }
+  btn.addEventListener('click', () => setDemo(!shown));
+})();
+
 /* ============ 上传数据集 · 后台 Onion 智能体自动预警 ============ */
 (function(){
   // 后端地址来源优先级：URL ?api= > localStorage > 内置默认(隧道地址会变，重启后用 ?api= 覆盖)
@@ -1585,7 +1621,7 @@ const DASH = {
     try{
       const r = await fetch(API+'/health', {method:'GET'});
       const j = await r.json();
-      if(j.status==='ok'){ setBadge('on','后端：在线'+(j.timesfm?' · TimesFM✓':'')); return true; }
+      if(j.status==='ok'){ setBadge('on','后端：在线'+(j.timesfm?' · singo✓':'')); return true; }
     }catch(e){}
     setBadge('off','后端：离线（可先看历史 run 大屏）');
     return false;

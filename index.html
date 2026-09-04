@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Onion · 时序基础模型驱动的工业故障预警智能体</title>
-<meta name="description" content="Onion —— 从模型预测到智能体决策。三体协作 · 两条通路 · 无泄漏阈值 · TimesFM 基座。">
+<meta name="description" content="Onion —— 从模型预测到智能体决策。三体协作 · 两条通路 · 无泄漏阈值 · singo 基座。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap">
@@ -241,7 +241,7 @@ footer{border-top:1px solid var(--line-soft); margin-top:40px}
 
 <!-- HERO -->
 <header class="hero" id="top">
-  <span class="pill"><span class="dot"></span>TimesFM 2.5 在线 · IsolationForest 半监督 · AUC 0.9709</span>
+  <span class="pill"><span class="dot"></span>singo 在线 · IsolationForest 半监督 · AUC 0.9709</span>
   <h1>ONION</h1>
   <p class="tag">时序基础模型驱动的工业故障预警智能体</p>
   <p class="sub">从<b>模型预测</b>到<b>智能体决策</b>。Onion 是一套跑在终端里、会自己分诊数据、调用算力、交叉验证、还讲诚实口径的时序故障预警智能体——<b>三体协作</b> · <b>两条通路</b> · <b>无泄漏阈值</b>。</p>
@@ -284,10 +284,10 @@ footer{border-top:1px solid var(--line-soft); margin-top:40px}
   </div>
   <div class="cards">
     <div class="card reveal"><div class="ico">🧠</div><h3>三体协作架构</h3><p>Planner / Forecaster / Critic 硬边界分工——规划者冻结任务、预测者建模调参、评审者核对真实性。任一时刻只扮演一个角色。</p><div class="kv">planner · forecaster · critic</div></div>
-    <div class="card reveal"><div class="ico">🔀</div><h3>两条平行通路</h3><p>异常检测(半监督 IsolationForest)与时序预测(TimesFM 回测)自动分诊,一套入口两种交付:预警排名 或 MSE/RMSE + 分位覆盖。</p><div class="kv">anomaly · forecast</div></div>
+    <div class="card reveal"><div class="ico">🔀</div><h3>两条平行通路</h3><p>异常检测(半监督 IsolationForest)与时序预测(singo 回测)自动分诊,一套入口两种交付:预警排名 或 MSE/RMSE + 分位覆盖。</p><div class="kv">anomaly · forecast</div></div>
     <div class="card reveal"><div class="ico">🛡️</div><h3>无泄漏阈值</h3><p>默认 <code style="font-family:var(--mono);color:var(--accent-2)">unsupervised-quantile</code> 完全不看标签定阈;可选 val/eval 两折无偏评估。杜绝「同批选又评」的乐观虚高。</p><div class="kv">--threshold-mode</div></div>
     <div class="card reveal"><div class="ico">📥</div><h3>通用 CSV 入口</h3><p>schema 自动嗅探 + 三情形:有标签→半监督、无标签→无监督降级、数据过短→冷启动。标签 <code style="font-family:var(--mono);color:var(--accent-2)">-1/1·0/1</code> 自动归一化。</p><div class="kv">ingest_csv.py</div></div>
-    <div class="card reveal"><div class="ico">⚡</div><h3>TimesFM 基座</h3><p>Google TimesFM 2.5-200M 常驻服务,提供 point + 分位数预测;回测出 MSE/MAE/RMSE + 覆盖率,对比 persistence 基线。</p><div class="kv">forecast_eval.py</div></div>
+    <div class="card reveal"><div class="ico">⚡</div><h3>singo 基座</h3><p>自研时序大模型 singo 常驻服务,提供 point + 分位数预测;回测出 MSE/MAE/RMSE + 覆盖率,对比 persistence 基线。</p><div class="kv">forecast_eval.py</div></div>
     <div class="card reveal"><div class="ico">✅</div><h3>诚实口径</h3><p>无真值标签时绝不产出 AUC/recall;类别不平衡时强制并报 balanced_acc 与 dummy 基线。双脚本交叉验证,run_id 可复现。</p><div class="kv">no fabrication</div></div>
   </div>
 </section>
@@ -297,14 +297,14 @@ footer{border-top:1px solid var(--line-soft); margin-top:40px}
   <div class="reveal">
     <p class="eyebrow">System Design</p>
     <h2 class="title">大脑在本地，算力在远端</h2>
-    <p class="lede">智能体在本地终端里思考与对话,所有 Python 计算、数据、TimesFM 服务都在远程 GPU 服务器——经单条复用 SSH 连接的执行器送达,产物落 <code style="font-family:var(--mono);color:var(--accent-2)">.forecast/</code> 文件协议跨角色共享。</p>
+    <p class="lede">智能体在本地终端里思考与对话,所有 Python 计算、数据、singo 服务都在远程 GPU 服务器——经单条复用 SSH 连接的执行器送达,产物落 <code style="font-family:var(--mono);color:var(--accent-2)">.forecast/</code> 文件协议跨角色共享。</p>
   </div>
   <div class="arch reveal">
-    <div class="node brain"><div class="tier">Brain · 本地</div><h4>opencode + Claude Opus 4.8</h4><p class="desc">终端 TUI 对话、三体推理、任务分诊与规划。经中转网关调用大模型。</p><div class="tags"><span class="t">opencode TUI</span><span class="t">Opus 4.8</span><span class="t">skills</span></div></div>
+    <div class="node brain"><div class="tier">Brain · 本地</div><h4>TUI + Claude Opus 4.8</h4><p class="desc">终端 TUI 对话、三体推理、任务分诊与规划。经中转网关调用大模型。</p><div class="tags"><span class="t">终端 TUI</span><span class="t">Opus 4.8</span><span class="t">skills</span></div></div>
     <div class="flow"><div class="line"></div><div class="lbl">./cc<br>SSH 复用</div></div>
     <div class="node exec"><div class="tier">Protocol · 协议</div><h4>.forecast/ 文件协议</h4><p class="desc">task.json 冻结任务、runs/&lt;run_id&gt; 存产物、四阶段门控严格推进。</p><div class="tags"><span class="t">task.json</span><span class="t">run_id=hash</span><span class="t">STATE.md</span></div></div>
     <div class="flow"><div class="line"></div><div class="lbl">$PY<br>执行</div></div>
-    <div class="node compute"><div class="tier">Compute · 远端</div><h4>GPU 服务器 + TimesFM</h4><p class="desc">sklearn 建模评估、TimesFM 2.5 常驻推理服务,确定性写入指标产物。</p><div class="tags"><span class="t">TimesFM :6006</span><span class="t">sklearn</span><span class="t">CAD-Scania</span></div></div>
+    <div class="node compute"><div class="tier">Compute · 远端</div><h4>GPU 服务器 + singo</h4><p class="desc">sklearn 建模评估、singo 常驻推理服务,确定性写入指标产物。</p><div class="tags"><span class="t">singo :6006</span><span class="t">sklearn</span><span class="t">CAD-Scania</span></div></div>
   </div>
 </section>
 
@@ -342,7 +342,7 @@ footer{border-top:1px solid var(--line-soft); margin-top:40px}
     <div class="path forecast reveal">
       <div class="h"><span class="b">FORECAST</span><h3>时序预测</h3></div>
       <ul>
-        <li>留出末段真值,用历史调 <b>TimesFM</b> 回测该段</li>
+        <li>留出末段真值,用历史调 <b>singo</b> 回测该段</li>
         <li>误差指标 <b>MSE / MAE / RMSE / MAPE / sMAPE</b></li>
         <li>分位数<b>覆盖率</b>检验区间标定</li>
         <li>对比 <b>persistence 基线</b>给相对改善</li>
@@ -370,7 +370,7 @@ footer{border-top:1px solid var(--line-soft); margin-top:40px}
 <span class="cm"># 无标签 → 自动降级无监督，只出预警、绝不产出 AUC</span>
 <span class="fl">./cc</span> <span class="st">'$PY scripts/pipeline.py --csv data/nolabel.csv --task anomaly'</span>
 
-<span class="cm"># 时序预测回测（TimesFM）</span>
+<span class="cm"># 时序预测回测（singo）</span>
 <span class="fl">./cc</span> <span class="st">'$PY scripts/pipeline.py --csv data/series.csv --task forecast --target-column value --horizon 24'</span></pre>
   </div>
   <div class="qs-grid">
@@ -390,7 +390,7 @@ footer{border-top:1px solid var(--line-soft); margin-top:40px}
 
 <footer>
   <div class="foot-in">
-    <div class="l">ONION · 时序基础模型驱动的工业故障预警智能体<br><b>opencode + Claude Opus 4.8 · TimesFM 2.5 · IsolationForest</b></div>
+    <div class="l">ONION · 时序基础模型驱动的工业故障预警智能体<br><b>TUI + Claude Opus 4.8 · singo · IsolationForest</b></div>
     <div class="r"><a href="dashboard.built.html">实时大屏</a><a href="#top">回到顶部</a></div>
   </div>
 </footer>
