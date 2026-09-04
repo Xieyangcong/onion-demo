@@ -1,0 +1,1478 @@
+<title>CastCodex 故障预警大屏</title>
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#0d1219; --panel:#141d28; --panel-2:#1a2431; --raise:#202c3b;
+    --line:#27333f; --line-soft:#1e2833;
+    --ink:#d7e0eb; --ink-dim:#9fb0c2; --muted:#6f7f92;
+    --accent:#4a9fed; --accent-dim:#2f6ea8;
+    --good:#33c48c; --warn:#f2a53c; --crit:#e5544b;
+    --good-wash:rgba(51,196,140,.16); --crit-wash:rgba(229,84,75,.18);
+    --accent-wash:rgba(74,159,237,.14);
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+    --r:10px; --pad:20px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:
+      radial-gradient(1200px 600px at 85% -10%, rgba(74,159,237,.08), transparent 60%),
+      var(--bg);
+    color:var(--ink); font-family:var(--sans);
+    font-size:14px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1280px; margin:0 auto; padding:22px 22px 40px}
+
+  /* ---- top bar ---- */
+  .top{
+    display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+    padding:16px 20px; border:1px solid var(--line); border-radius:var(--r);
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    margin-bottom:18px;
+  }
+  .brand{display:flex; align-items:baseline; gap:10px}
+  .brand .mark{
+    font-family:var(--mono); font-weight:600; font-size:19px; letter-spacing:.5px;
+    color:var(--ink);
+  }
+  .brand .mark b{color:var(--accent); font-weight:700}
+  .brand .sub{color:var(--muted); font-size:12.5px}
+  .top .spacer{flex:1}
+  .meta-chip{
+    font-family:var(--mono); font-size:11.5px; color:var(--ink-dim);
+    background:var(--panel); border:1px solid var(--line-soft);
+    padding:5px 10px; border-radius:6px; letter-spacing:.3px;
+  }
+  .meta-chip span{color:var(--muted)}
+  .status{
+    display:flex; align-items:center; gap:9px;
+    font-family:var(--mono); font-size:12.5px; font-weight:600; letter-spacing:.6px;
+    color:var(--good); background:var(--good-wash);
+    border:1px solid rgba(51,196,140,.35);
+    padding:7px 13px; border-radius:7px;
+  }
+  .status .dot{width:9px; height:9px; border-radius:50%; background:var(--good);
+    box-shadow:0 0 0 0 rgba(51,196,140,.6); animation:pulse 2.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(51,196,140,.55)}70%{box-shadow:0 0 0 8px rgba(51,196,140,0)}100%{box-shadow:0 0 0 0 rgba(51,196,140,0)}}
+  @media (prefers-reduced-motion:reduce){.status .dot{animation:none}}
+
+  /* ---- section labels ---- */
+  .eyebrow{
+    font-family:var(--mono); font-size:11px; letter-spacing:2px; text-transform:uppercase;
+    color:var(--muted); margin:0 0 10px 2px;
+  }
+
+  /* ---- kpi row ---- */
+  .kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px}
+  .kpi{
+    position:relative; padding:16px 18px 15px;
+    border:1px solid var(--line); border-radius:var(--r);
+    background:var(--panel); overflow:hidden;
+  }
+  .kpi::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent)}
+  .kpi.k-good::before{background:var(--good)} .kpi.k-warn::before{background:var(--warn)}
+  .kpi .label{font-family:var(--mono); font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--muted)}
+  .kpi .val{font-family:var(--mono); font-weight:600; font-size:34px; line-height:1.1; margin-top:6px; font-variant-numeric:tabular-nums}
+  .kpi .val small{font-size:16px; color:var(--ink-dim); font-weight:400}
+  .kpi .foot{font-size:11.5px; color:var(--ink-dim); margin-top:6px}
+  .kpi .foot b{color:var(--good); font-weight:600}
+
+  /* ---- main grid ---- */
+  .grid{display:grid; grid-template-columns:1.15fr .85fr; gap:16px; align-items:start}
+  .col{display:flex; flex-direction:column; gap:16px}
+  .card{
+    border:1px solid var(--line); border-radius:var(--r);
+    background:var(--panel); padding:var(--pad);
+  }
+  .card h3{
+    margin:0 0 3px; font-size:14.5px; font-weight:600; letter-spacing:.2px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .card .hint{color:var(--muted); font-size:12px; margin:0 0 14px}
+  .badge{font-family:var(--mono); font-size:11px; padding:2px 7px; border-radius:5px;
+    background:var(--accent-wash); color:var(--accent); border:1px solid rgba(74,159,237,.3)}
+
+  svg{display:block; width:100%; height:auto; overflow:visible}
+  .axis{stroke:var(--line); stroke-width:1}
+  .axis-t{fill:var(--muted); font-family:var(--mono); font-size:10px}
+  .tick{stroke:var(--line-soft); stroke-width:1}
+
+  /* two charts side by side inside a card region */
+  .duo{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  @media (max-width:900px){.duo{grid-template-columns:1fr}}
+
+  /* legend */
+  .legend{display:flex; gap:16px; flex-wrap:wrap; margin-top:10px; font-size:12px; color:var(--ink-dim)}
+  .legend i{display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:6px; vertical-align:-1px}
+
+  /* confusion matrix */
+  .cm{display:grid; grid-template-columns:auto 1fr 1fr; grid-template-rows:auto 1fr 1fr; gap:6px; margin-top:6px}
+  .cm .corner{}
+  .cm .h{font-family:var(--mono); font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px;
+    display:flex; align-items:center; justify-content:center; text-align:center}
+  .cm .cell{border-radius:8px; padding:14px 10px; text-align:center; border:1px solid var(--line)}
+  .cm .cell .n{font-family:var(--mono); font-weight:600; font-size:23px; font-variant-numeric:tabular-nums}
+  .cm .cell .t{font-size:10.5px; color:var(--ink-dim); margin-top:2px; letter-spacing:.3px}
+  .cm .tp{background:var(--good-wash); border-color:rgba(51,196,140,.4)} .cm .tp .n{color:var(--good)}
+  .cm .tn{background:rgba(51,196,140,.07)} .cm .tn .n{color:var(--ink)}
+  .cm .fp{background:rgba(242,165,60,.1); border-color:rgba(242,165,60,.35)} .cm .fp .n{color:var(--warn)}
+  .cm .fn{background:var(--crit-wash); border-color:rgba(229,84,75,.4)} .cm .fn .n{color:var(--crit)}
+
+  /* decision chain */
+  .chain{display:flex; flex-direction:column; gap:0; margin-top:2px}
+  .step{display:grid; grid-template-columns:104px 1fr; gap:14px; padding:11px 0; position:relative}
+  .step:not(:last-child){border-bottom:1px dashed var(--line-soft)}
+  .step .who{font-family:var(--mono); font-size:11.5px; font-weight:600; letter-spacing:.4px;
+    padding-top:1px; display:flex; align-items:flex-start; gap:7px}
+  .step .who .d{width:8px; height:8px; border-radius:50%; margin-top:5px; flex:none}
+  .who.planner .d{background:var(--accent)} .who.planner{color:var(--accent)}
+  .who.forecaster .d{background:var(--warn)} .who.forecaster{color:var(--warn)}
+  .who.critic .d{background:var(--good)} .who.critic{color:var(--good)}
+  .step .act{color:var(--ink-dim); font-size:12.5px; line-height:1.55}
+
+  /* top cases table */
+  table{width:100%; border-collapse:collapse; font-size:12.5px}
+  thead th{font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.6px;
+    color:var(--muted); text-align:left; font-weight:500; padding:0 8px 9px; border-bottom:1px solid var(--line)}
+  tbody td{padding:8px; border-bottom:1px solid var(--line-soft); font-variant-numeric:tabular-nums}
+  tbody tr:last-child td{border-bottom:none}
+  td.idx{font-family:var(--mono); color:var(--ink-dim)}
+  td.sc{font-family:var(--mono); color:var(--ink)}
+  .tag{display:inline-flex; align-items:center; gap:6px; font-family:var(--mono); font-size:11px;
+    padding:2px 8px; border-radius:20px}
+  .tag.fault{background:var(--crit-wash); color:var(--crit)}
+  .tag.ok{background:rgba(111,127,146,.15); color:var(--ink-dim)}
+  .tag .d{width:6px; height:6px; border-radius:50%; background:currentColor}
+  .bar{height:5px; border-radius:3px; background:var(--line); overflow:hidden; margin-top:5px}
+  .bar > i{display:block; height:100%; background:linear-gradient(90deg,var(--accent-dim),var(--accent))}
+
+  .foot-note{
+    margin-top:22px; padding:15px 18px; border:1px solid var(--line-soft); border-radius:var(--r);
+    background:var(--panel); color:var(--ink-dim); font-size:12.5px; line-height:1.65;
+  }
+  .foot-note b{color:var(--ink)} .foot-note code{font-family:var(--mono); color:var(--warn); font-size:12px}
+
+  @media (max-width:820px){
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .grid{grid-template-columns:1fr}
+  }
+</style>
+
+<div class="wrap">
+  <!-- TOP BAR -->
+  <div class="top">
+    <div class="brand">
+      <span class="mark">Cast<b>Codex</b></span>
+      <span class="sub">· 时序基础模型驱动的工业故障预警智能体</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="meta-chip"><span>数据源</span> CAD-Scania</div>
+    <div class="meta-chip"><span>run_id</span> <span id="m-rid">—</span></div>
+    <div class="meta-chip"><span>模型</span> IsolationForest · 半监督</div>
+    <div class="status"><span class="dot"></span><span id="m-status">TARGET MET</span></div>
+  </div>
+
+  <!-- KPIS -->
+  <p class="eyebrow">核心指标 · Test 集 <span id="m-ntest"></span> 条</p>
+  <div class="kpis" id="kpis"></div>
+
+  <!-- MAIN GRID -->
+  <div class="grid">
+    <div class="col">
+      <div class="card">
+        <h3>判别能力曲线 <span class="badge" id="b-auc">AUC —</span></h3>
+        <p class="hint">阈值无关的判别力证据：ROC 越贴左上、PR 越贴右上越好。</p>
+        <div class="duo">
+          <div>
+            <svg id="roc" viewBox="0 0 260 220" role="img" aria-label="ROC 曲线"></svg>
+            <div class="legend"><span><i style="background:var(--accent)"></i>ROC</span><span><i style="background:var(--muted)"></i>随机基线</span></div>
+          </div>
+          <div>
+            <svg id="pr" viewBox="0 0 260 220" role="img" aria-label="PR 曲线"></svg>
+            <div class="legend"><span><i style="background:var(--good)"></i>PR</span><span><i style="background:var(--muted)"></i>故障占比 7.6%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>异常分数分布 <span class="badge">正常 vs 故障</span></h3>
+        <p class="hint">检测器给每条样本打异常分；两分布分离越开越易区分。竖线为收敛阈值。</p>
+        <svg id="hist" viewBox="0 0 560 240" role="img" aria-label="分数分布直方图"></svg>
+        <div class="legend">
+          <span><i style="background:var(--good)"></i>正常样本</span>
+          <span><i style="background:var(--crit)"></i>故障样本</span>
+          <span><i style="background:var(--warn)"></i>预警阈值 <span id="l-thr" style="font-family:var(--mono)"></span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <h3>混淆矩阵</h3>
+        <p class="hint">阈值切分后的四象限；故障漏报（FN）是预警最需压低的。</p>
+        <div class="cm" id="cm">
+          <div class="corner"></div>
+          <div class="h">预测 · 正常</div>
+          <div class="h">预测 · 故障</div>
+          <div class="h" style="writing-mode:vertical-rl; transform:rotate(180deg)">真实正常</div>
+          <div class="cell tn"><div class="n" id="c-tn">—</div><div class="t">TN 正确放行</div></div>
+          <div class="cell fp"><div class="n" id="c-fp">—</div><div class="t">FP 误报</div></div>
+          <div class="h" style="writing-mode:vertical-rl; transform:rotate(180deg)">真实故障</div>
+          <div class="cell fn"><div class="n" id="c-fn">—</div><div class="t">FN 漏报</div></div>
+          <div class="cell tp"><div class="n" id="c-tp">—</div><div class="t">TP 成功预警</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>智能体决策链</h3>
+        <p class="hint">Planner / Forecaster / Critic 三体协作留痕。</p>
+        <div class="chain" id="chain"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOP CASES -->
+  <div class="card" style="margin-top:16px">
+    <h3>最高风险样本 Top 12 <span class="badge">异常分排序</span></h3>
+    <p class="hint">检测器打分最高的样本；红点为真实故障，灰点为误报（假警）。</p>
+    <table>
+      <thead><tr><th style="width:70px">样本#</th><th style="width:150px">异常分</th><th></th><th style="width:130px">真实状态</th></tr></thead>
+      <tbody id="cases"></tbody>
+    </table>
+  </div>
+
+  <div class="foot-note" id="note"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ibm-plex/6.4.1/css/ibm-plex.min.css" onerror="this.remove()"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<script>
+const DASH = {
+  "kpi": {
+    "accuracy": 0.9516,
+    "recall": 0.8327,
+    "precision": 0.6391,
+    "f1": 0.7232,
+    "auc": 0.9709,
+    "ap": 0.712,
+    "balanced_accuracy": 0.8971,
+    "dummy_all0_accuracy": 0.9242,
+    "target_met": true
+  },
+  "confusion": {
+    "tn": 9666,
+    "fp": 388,
+    "fn": 138,
+    "tp": 687
+  },
+  "curves": {
+    "roc": {
+      "fpr": [
+        0.0,
+        0.0003,
+        0.0005,
+        0.0008,
+        0.0011,
+        0.0015,
+        0.0018,
+        0.0022,
+        0.0024,
+        0.0027,
+        0.0032,
+        0.0038,
+        0.0043,
+        0.0047,
+        0.005,
+        0.0055,
+        0.0059,
+        0.0065,
+        0.0071,
+        0.0074,
+        0.0076,
+        0.0083,
+        0.0086,
+        0.0091,
+        0.0093,
+        0.0097,
+        0.0101,
+        0.0104,
+        0.0106,
+        0.011,
+        0.0114,
+        0.0117,
+        0.0121,
+        0.013,
+        0.0132,
+        0.0138,
+        0.0143,
+        0.0148,
+        0.0153,
+        0.0159,
+        0.0164,
+        0.0172,
+        0.0175,
+        0.0187,
+        0.0189,
+        0.0196,
+        0.02,
+        0.0208,
+        0.021,
+        0.0218,
+        0.0221,
+        0.0225,
+        0.0229,
+        0.024,
+        0.0245,
+        0.025,
+        0.0261,
+        0.0267,
+        0.0277,
+        0.0281,
+        0.0286,
+        0.0298,
+        0.0304,
+        0.031,
+        0.0316,
+        0.0328,
+        0.0335,
+        0.0346,
+        0.0351,
+        0.036,
+        0.0364,
+        0.0376,
+        0.0379,
+        0.039,
+        0.0397,
+        0.0407,
+        0.0419,
+        0.0427,
+        0.0449,
+        0.0459,
+        0.0463,
+        0.0483,
+        0.0498,
+        0.0505,
+        0.0529,
+        0.0539,
+        0.0547,
+        0.056,
+        0.0572,
+        0.0613,
+        0.0647,
+        0.0671,
+        0.0691,
+        0.0712,
+        0.0726,
+        0.0752,
+        0.0767,
+        0.0785,
+        0.088,
+        0.0925,
+        0.0942,
+        0.0989,
+        0.1058,
+        0.1112,
+        0.1309,
+        0.135,
+        0.1421,
+        0.1532,
+        0.1604,
+        0.17,
+        0.1736,
+        0.1805,
+        0.1834,
+        0.2024,
+        0.2159,
+        0.228,
+        0.2312,
+        0.2353,
+        0.2511,
+        0.2557,
+        0.2619,
+        0.2676,
+        0.2785,
+        0.292,
+        0.2994,
+        0.3059,
+        0.3135,
+        0.3387,
+        0.3472,
+        0.3586,
+        0.3812,
+        0.3919,
+        0.4007,
+        0.4052,
+        0.4217,
+        0.4315,
+        0.4438,
+        0.4456,
+        0.4579,
+        0.4623,
+        0.4775,
+        0.4874,
+        0.4944,
+        0.502,
+        0.5128,
+        0.517,
+        0.5278,
+        0.548,
+        0.5509,
+        0.5534,
+        0.5627,
+        0.5658,
+        0.572,
+        0.58,
+        0.5888,
+        0.5993,
+        0.6082,
+        0.6122,
+        0.6158,
+        0.6222,
+        0.6327,
+        0.645,
+        0.6508,
+        0.6599,
+        0.6632,
+        0.6673,
+        0.6864,
+        0.695,
+        0.7076,
+        0.7142,
+        0.7197,
+        0.729,
+        0.7346,
+        0.741,
+        0.7505,
+        0.7543,
+        0.7583,
+        0.7652,
+        0.7734,
+        0.7802,
+        0.7908,
+        0.7966,
+        0.8028,
+        0.8088,
+        0.8351,
+        0.8383,
+        0.8436,
+        0.8514,
+        0.8579,
+        0.8628,
+        0.8696,
+        0.873,
+        0.8811,
+        0.8914,
+        0.8979,
+        0.9035,
+        0.9099,
+        0.9214,
+        0.9318,
+        0.94,
+        0.9449,
+        0.9529,
+        0.9569,
+        0.9653,
+        0.9713,
+        0.9879,
+        0.9932,
+        0.9982
+      ],
+      "tpr": [
+        0.0,
+        0.0291,
+        0.0412,
+        0.0473,
+        0.0667,
+        0.0848,
+        0.1006,
+        0.1127,
+        0.1345,
+        0.1515,
+        0.1709,
+        0.1806,
+        0.1976,
+        0.217,
+        0.2242,
+        0.2315,
+        0.2533,
+        0.2667,
+        0.2788,
+        0.3091,
+        0.3224,
+        0.3382,
+        0.3491,
+        0.3612,
+        0.3733,
+        0.3915,
+        0.4024,
+        0.4158,
+        0.4303,
+        0.4352,
+        0.4424,
+        0.4545,
+        0.463,
+        0.4703,
+        0.4848,
+        0.497,
+        0.5042,
+        0.5176,
+        0.5321,
+        0.5479,
+        0.5552,
+        0.5648,
+        0.5745,
+        0.5855,
+        0.5976,
+        0.6048,
+        0.6133,
+        0.6242,
+        0.6339,
+        0.6376,
+        0.6509,
+        0.6582,
+        0.6739,
+        0.68,
+        0.6958,
+        0.7042,
+        0.7127,
+        0.7188,
+        0.7285,
+        0.7358,
+        0.7418,
+        0.7491,
+        0.7552,
+        0.7612,
+        0.7709,
+        0.7758,
+        0.7806,
+        0.7842,
+        0.7939,
+        0.8,
+        0.8109,
+        0.8158,
+        0.8255,
+        0.8339,
+        0.8412,
+        0.8436,
+        0.8473,
+        0.8533,
+        0.8582,
+        0.8655,
+        0.8691,
+        0.8764,
+        0.8788,
+        0.8861,
+        0.8897,
+        0.8933,
+        0.8994,
+        0.9018,
+        0.9055,
+        0.9091,
+        0.9152,
+        0.9188,
+        0.9224,
+        0.9273,
+        0.9321,
+        0.9358,
+        0.9382,
+        0.943,
+        0.9455,
+        0.9503,
+        0.9552,
+        0.9576,
+        0.9576,
+        0.96,
+        0.9624,
+        0.9648,
+        0.9661,
+        0.9685,
+        0.9709,
+        0.9721,
+        0.9758,
+        0.9806,
+        0.983,
+        0.9842,
+        0.9842,
+        0.9842,
+        0.9842,
+        0.9842,
+        0.9855,
+        0.9867,
+        0.9867,
+        0.9867,
+        0.9879,
+        0.9879,
+        0.9879,
+        0.9879,
+        0.9879,
+        0.9891,
+        0.9891,
+        0.9891,
+        0.9891,
+        0.9903,
+        0.9903,
+        0.9903,
+        0.9903,
+        0.9903,
+        0.9903,
+        0.9927,
+        0.9927,
+        0.9952,
+        0.9964,
+        0.9964,
+        0.9964,
+        0.9964,
+        0.9976,
+        0.9976,
+        0.9976,
+        0.9976,
+        0.9976,
+        0.9976,
+        0.9988,
+        0.9988,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "pr": {
+      "recall": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.9988,
+        0.9988,
+        0.9976,
+        0.9976,
+        0.9976,
+        0.9976,
+        0.9976,
+        0.9976,
+        0.9976,
+        0.9976,
+        0.9976,
+        0.9976,
+        0.9964,
+        0.9964,
+        0.9964,
+        0.9964,
+        0.9964,
+        0.9964,
+        0.9964,
+        0.9964,
+        0.9952,
+        0.9927,
+        0.9927,
+        0.9903,
+        0.9903,
+        0.9903,
+        0.9903,
+        0.9903,
+        0.9903,
+        0.9903,
+        0.9903,
+        0.9903,
+        0.9903,
+        0.9903,
+        0.9903,
+        0.9891,
+        0.9891,
+        0.9891,
+        0.9891,
+        0.9891,
+        0.9891,
+        0.9891,
+        0.9891,
+        0.9879,
+        0.9879,
+        0.9879,
+        0.9879,
+        0.9879,
+        0.9879,
+        0.9879,
+        0.9879,
+        0.9879,
+        0.9879,
+        0.9879,
+        0.9879,
+        0.9867,
+        0.9867,
+        0.9867,
+        0.9867,
+        0.9855,
+        0.9842,
+        0.9842,
+        0.9842,
+        0.9842,
+        0.9842,
+        0.9842,
+        0.9842,
+        0.9842,
+        0.9842,
+        0.983,
+        0.983,
+        0.983,
+        0.9818,
+        0.9806,
+        0.9733,
+        0.9721,
+        0.9709,
+        0.9685,
+        0.9685,
+        0.9673,
+        0.9661,
+        0.9648,
+        0.9624,
+        0.9624,
+        0.9612,
+        0.9612,
+        0.9576,
+        0.9576,
+        0.9576,
+        0.9539,
+        0.9455,
+        0.9455,
+        0.943,
+        0.9345,
+        0.9236,
+        0.9152,
+        0.9067,
+        0.8994,
+        0.8873,
+        0.8703,
+        0.8533,
+        0.8376,
+        0.8085,
+        0.7782,
+        0.7515,
+        0.7248,
+        0.6909,
+        0.6545,
+        0.6145,
+        0.5758,
+        0.5406,
+        0.497,
+        0.4582,
+        0.4085,
+        0.3527,
+        0.3055,
+        0.2582,
+        0.2109,
+        0.1648,
+        0.1115,
+        0.0533,
+        0.0
+      ],
+      "precision": [
+        0.0758,
+        0.0764,
+        0.0768,
+        0.0772,
+        0.0776,
+        0.0779,
+        0.0783,
+        0.0788,
+        0.0792,
+        0.0796,
+        0.08,
+        0.0805,
+        0.0809,
+        0.0813,
+        0.0817,
+        0.0822,
+        0.0826,
+        0.0831,
+        0.0836,
+        0.084,
+        0.0845,
+        0.085,
+        0.0855,
+        0.086,
+        0.0865,
+        0.087,
+        0.0875,
+        0.088,
+        0.0885,
+        0.0891,
+        0.0896,
+        0.0901,
+        0.0907,
+        0.0912,
+        0.0917,
+        0.0923,
+        0.0928,
+        0.0934,
+        0.094,
+        0.0946,
+        0.0952,
+        0.0958,
+        0.0964,
+        0.0971,
+        0.0977,
+        0.0984,
+        0.099,
+        0.0997,
+        0.1004,
+        0.101,
+        0.1017,
+        0.1024,
+        0.1031,
+        0.1038,
+        0.1046,
+        0.1053,
+        0.106,
+        0.1067,
+        0.1075,
+        0.1082,
+        0.109,
+        0.1098,
+        0.1107,
+        0.1115,
+        0.1123,
+        0.1132,
+        0.114,
+        0.1149,
+        0.1157,
+        0.1166,
+        0.1175,
+        0.1185,
+        0.1194,
+        0.1204,
+        0.1214,
+        0.1224,
+        0.1234,
+        0.1244,
+        0.1254,
+        0.1263,
+        0.1274,
+        0.1283,
+        0.1295,
+        0.1307,
+        0.1318,
+        0.1329,
+        0.1341,
+        0.1353,
+        0.1365,
+        0.1378,
+        0.139,
+        0.1401,
+        0.1414,
+        0.1427,
+        0.1441,
+        0.1455,
+        0.1469,
+        0.1482,
+        0.1497,
+        0.151,
+        0.1522,
+        0.1537,
+        0.1549,
+        0.1565,
+        0.1581,
+        0.1598,
+        0.1615,
+        0.1632,
+        0.165,
+        0.1668,
+        0.1687,
+        0.1706,
+        0.1726,
+        0.1745,
+        0.1764,
+        0.1784,
+        0.1805,
+        0.1826,
+        0.1848,
+        0.187,
+        0.1895,
+        0.1918,
+        0.1941,
+        0.1966,
+        0.1991,
+        0.2017,
+        0.2043,
+        0.2071,
+        0.2101,
+        0.2131,
+        0.2162,
+        0.2193,
+        0.2225,
+        0.2258,
+        0.2288,
+        0.2323,
+        0.236,
+        0.2399,
+        0.2436,
+        0.2472,
+        0.2512,
+        0.2553,
+        0.2599,
+        0.2648,
+        0.2694,
+        0.2742,
+        0.2794,
+        0.2845,
+        0.2896,
+        0.2951,
+        0.3009,
+        0.3067,
+        0.3126,
+        0.317,
+        0.3235,
+        0.3302,
+        0.3367,
+        0.3444,
+        0.352,
+        0.3603,
+        0.3685,
+        0.377,
+        0.3866,
+        0.3961,
+        0.4067,
+        0.4164,
+        0.4291,
+        0.4421,
+        0.4541,
+        0.4657,
+        0.4809,
+        0.4959,
+        0.5096,
+        0.5219,
+        0.5366,
+        0.5528,
+        0.5712,
+        0.5875,
+        0.6029,
+        0.6186,
+        0.6375,
+        0.6463,
+        0.6564,
+        0.6717,
+        0.6881,
+        0.6985,
+        0.7068,
+        0.7131,
+        0.7241,
+        0.7396,
+        0.7441,
+        0.7606,
+        0.7677,
+        0.7618,
+        0.773,
+        0.7802,
+        0.7909,
+        0.8144,
+        0.8142,
+        0.8,
+        1.0
+      ]
+    }
+  },
+  "score_hist": {
+    "centers": [
+      0.3178,
+      0.3287,
+      0.3396,
+      0.3505,
+      0.3615,
+      0.3724,
+      0.3833,
+      0.3942,
+      0.4051,
+      0.4161,
+      0.427,
+      0.4379,
+      0.4488,
+      0.4597,
+      0.4707,
+      0.4816,
+      0.4925,
+      0.5034,
+      0.5144,
+      0.5253,
+      0.5362,
+      0.5471,
+      0.558,
+      0.569,
+      0.5799,
+      0.5908,
+      0.6017,
+      0.6126,
+      0.6236,
+      0.6345,
+      0.6454,
+      0.6563,
+      0.6673,
+      0.6782,
+      0.6891,
+      0.7,
+      0.7109,
+      0.7219,
+      0.7328,
+      0.7437
+    ],
+    "normal": [
+      3305,
+      2715,
+      1077,
+      690,
+      408,
+      243,
+      207,
+      172,
+      131,
+      100,
+      90,
+      82,
+      58,
+      73,
+      56,
+      37,
+      39,
+      38,
+      34,
+      27,
+      25,
+      26,
+      24,
+      26,
+      22,
+      18,
+      22,
+      20,
+      21,
+      15,
+      15,
+      21,
+      12,
+      20,
+      11,
+      15,
+      12,
+      14,
+      10,
+      3
+    ],
+    "fault": [
+      0,
+      8,
+      2,
+      3,
+      7,
+      6,
+      5,
+      2,
+      2,
+      10,
+      1,
+      10,
+      13,
+      8,
+      12,
+      11,
+      11,
+      12,
+      14,
+      26,
+      18,
+      15,
+      18,
+      23,
+      27,
+      25,
+      35,
+      27,
+      26,
+      28,
+      34,
+      31,
+      41,
+      46,
+      47,
+      36,
+      34,
+      44,
+      37,
+      26
+    ],
+    "threshold": 0.5205
+  },
+  "top_cases": [
+    {
+      "idx": 9785,
+      "score": 0.8108,
+      "label": 1,
+      "alarm": true
+    },
+    {
+      "idx": 1770,
+      "score": 0.7903,
+      "label": 1,
+      "alarm": true
+    },
+    {
+      "idx": 9698,
+      "score": 0.7886,
+      "label": 1,
+      "alarm": true
+    },
+    {
+      "idx": 9892,
+      "score": 0.7881,
+      "label": 1,
+      "alarm": true
+    },
+    {
+      "idx": 2986,
+      "score": 0.7878,
+      "label": 0,
+      "alarm": true
+    },
+    {
+      "idx": 3972,
+      "score": 0.7867,
+      "label": 0,
+      "alarm": true
+    },
+    {
+      "idx": 1595,
+      "score": 0.7851,
+      "label": 1,
+      "alarm": true
+    },
+    {
+      "idx": 10654,
+      "score": 0.7839,
+      "label": 1,
+      "alarm": true
+    },
+    {
+      "idx": 9902,
+      "score": 0.783,
+      "label": 1,
+      "alarm": true
+    },
+    {
+      "idx": 1754,
+      "score": 0.7809,
+      "label": 1,
+      "alarm": true
+    },
+    {
+      "idx": 10754,
+      "score": 0.78,
+      "label": 1,
+      "alarm": true
+    },
+    {
+      "idx": 9717,
+      "score": 0.7796,
+      "label": 1,
+      "alarm": true
+    }
+  ],
+  "decision_chain": [
+    {
+      "agent": "Planner",
+      "action": "\u51bb\u7ed3\u4efb\u52a1 task.json\uff1aSCANIA \u6545\u969c\u9884\u8b66\uff0c\u534a\u76d1\u7763\u5f02\u5e38\u68c0\u6d4b\uff0c\u76ee\u6807 accuracy>90%"
+    },
+    {
+      "agent": "Planner",
+      "action": "\u6570\u636e\u5206\u6790\uff1atrain \u5168\u6b63\u5e38(scania.npz)\uff0ctest \u542b\u6545\u969c\uff0c\u7279\u5f81 162 \u7ef4"
+    },
+    {
+      "agent": "Forecaster",
+      "action": "TimesFM \u5206\u4f4d\u6570\u533a\u95f4 + IsolationForest \u5efa\u6a21\uff1b\u589e\u5f3a\u7279\u5f81 0 \u7ef4"
+    },
+    {
+      "agent": "Forecaster",
+      "action": "\u9608\u503c\u626b\u63cf\u6536\u655b\uff1aq=0.9012 \u4f7f accuracy>0.9 \u4e0b F1 \u6700\u5927"
+    },
+    {
+      "agent": "Critic",
+      "action": "\u8bc4\u4f30\uff1aAUC=0.9709 accuracy=0.9516 recall=0.8327 F1=0.7232"
+    },
+    {
+      "agent": "Critic",
+      "action": "\u7ed3\u8bba\uff1a\u76ee\u6807\u8fbe\u6807\uff08\u5bf9\u7167 dummy=0.9242\uff0c\u975e\u4e0d\u5e73\u8861\u865a\u9ad8\uff09"
+    }
+  ],
+  "meta": {
+    "run_id": "b911dfcf270b",
+    "n_test": 10879,
+    "n_fault": 825
+  }
+};
+
+(function(){
+  const $ = id => document.getElementById(id);
+  const pct = x => (x*100).toFixed(2)+'%';
+  const k = DASH.kpi, cm = DASH.confusion, meta = DASH.meta;
+
+  // meta
+  $('m-rid').textContent = meta.run_id;
+  $('m-ntest').textContent = meta.n_test.toLocaleString();
+  $('b-auc').textContent = 'AUC ' + k.auc.toFixed(4);
+  if(!k.target_met){ $('m-status').textContent='BELOW TARGET'; }
+
+  // KPIs
+  const kpis = [
+    {label:'Accuracy', val:pct(k.accuracy), cls:'k-good', foot:`目标 &gt;90% · <b>达标</b>`},
+    {label:'AUC', val:k.auc.toFixed(4), cls:'', foot:'判别力主证据'},
+    {label:'Recall 故障召回', val:pct(k.recall), cls:'k-warn', foot:`${cm.tp}/${cm.tp+cm.fn} 个故障被预警`},
+    {label:'F1 / Precision', val:k.f1.toFixed(3), cls:'', foot:`Precision ${pct(k.precision)}`},
+  ];
+  $('kpis').innerHTML = kpis.map(x=>`
+    <div class="kpi ${x.cls}">
+      <div class="label">${x.label}</div>
+      <div class="val">${x.val}</div>
+      <div class="foot">${x.foot}</div>
+    </div>`).join('');
+
+  // confusion
+  $('c-tn').textContent = cm.tn.toLocaleString();
+  $('c-fp').textContent = cm.fp.toLocaleString();
+  $('c-fn').textContent = cm.fn.toLocaleString();
+  $('c-tp').textContent = cm.tp.toLocaleString();
+
+  // ---- ROC ----
+  (function(){
+    const W=260,H=220, P={l:38,r:12,t:12,b:34}, iw=W-P.l-P.r, ih=H-P.t-P.b;
+    const X=v=>P.l+v*iw, Y=v=>P.t+(1-v)*ih;
+    const roc=DASH.curves.roc;
+    let d='M'+X(0)+' '+Y(0);
+    for(let i=0;i<roc.fpr.length;i++) d+=' L'+X(roc.fpr[i]).toFixed(1)+' '+Y(roc.tpr[i]).toFixed(1);
+    d+=' L'+X(1)+' '+Y(1);
+    const area=d+' L'+X(1)+' '+Y(0)+' Z';
+    let g='';
+    [0,.5,1].forEach(t=>{ g+=`<line class="tick" x1="${X(t)}" y1="${P.t}" x2="${X(t)}" y2="${P.t+ih}"/>`;
+      g+=`<line class="tick" x1="${P.l}" y1="${Y(t)}" x2="${P.l+iw}" y2="${Y(t)}"/>`;
+      g+=`<text class="axis-t" x="${X(t)}" y="${H-20}" text-anchor="middle">${t}</text>`;
+      g+=`<text class="axis-t" x="${P.l-6}" y="${Y(t)+3}" text-anchor="end">${t}</text>`;});
+    $('roc').innerHTML = g +
+      `<line class="axis" x1="${P.l}" y1="${P.t}" x2="${P.l}" y2="${P.t+ih}"/>`+
+      `<line class="axis" x1="${P.l}" y1="${P.t+ih}" x2="${P.l+iw}" y2="${P.t+ih}"/>`+
+      `<line x1="${X(0)}" y1="${Y(0)}" x2="${X(1)}" y2="${Y(1)}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3"/>`+
+      `<path d="${area}" fill="var(--accent-wash)" stroke="none"/>`+
+      `<path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>`+
+      `<text class="axis-t" x="${P.l+iw}" y="${P.t+ih-8}" text-anchor="end" fill="var(--accent)">AUC ${k.auc.toFixed(3)}</text>`+
+      `<text class="axis-t" x="${P.l+iw/2}" y="${H-4}" text-anchor="middle">假阳性率 FPR</text>`;
+  })();
+
+  // ---- PR ----
+  (function(){
+    const W=260,H=220, P={l:38,r:12,t:12,b:34}, iw=W-P.l-P.r, ih=H-P.t-P.b;
+    const X=v=>P.l+v*iw, Y=v=>P.t+(1-v)*ih;
+    const pr=DASH.curves.pr, prev=0.0758;
+    let d='';
+    for(let i=0;i<pr.recall.length;i++) d+=(i?' L':'M')+X(pr.recall[i]).toFixed(1)+' '+Y(pr.precision[i]).toFixed(1);
+    let g='';
+    [0,.5,1].forEach(t=>{ g+=`<line class="tick" x1="${X(t)}" y1="${P.t}" x2="${X(t)}" y2="${P.t+ih}"/>`;
+      g+=`<line class="tick" x1="${P.l}" y1="${Y(t)}" x2="${P.l+iw}" y2="${Y(t)}"/>`;
+      g+=`<text class="axis-t" x="${X(t)}" y="${H-20}" text-anchor="middle">${t}</text>`;
+      g+=`<text class="axis-t" x="${P.l-6}" y="${Y(t)+3}" text-anchor="end">${t}</text>`;});
+    $('pr').innerHTML = g +
+      `<line class="axis" x1="${P.l}" y1="${P.t}" x2="${P.l}" y2="${P.t+ih}"/>`+
+      `<line class="axis" x1="${P.l}" y1="${P.t+ih}" x2="${P.l+iw}" y2="${P.t+ih}"/>`+
+      `<line x1="${X(0)}" y1="${Y(prev)}" x2="${X(1)}" y2="${Y(prev)}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3"/>`+
+      `<path d="${d}" fill="none" stroke="var(--good)" stroke-width="2" stroke-linejoin="round"/>`+
+      `<text class="axis-t" x="${P.l+8}" y="${Y(prev)-5}" fill="var(--muted)">基线 7.6%</text>`+
+      `<text class="axis-t" x="${P.l+iw}" y="${P.t+12}" text-anchor="end" fill="var(--good)">AP ${k.ap.toFixed(3)}</text>`+
+      `<text class="axis-t" x="${P.l+iw/2}" y="${H-4}" text-anchor="middle">召回率 Recall</text>`;
+  })();
+
+  // ---- HIST ----
+  (function(){
+    const h=DASH.score_hist, thr=h.threshold;
+    const W=560,H=240, P={l:44,r:14,t:14,b:40}, iw=W-P.l-P.r, ih=H-P.t-P.b;
+    const n=h.centers.length, step=(h.centers[1]-h.centers[0]);
+    const x0=h.centers[0]-step/2, x1=h.centers[n-1]+step/2;
+    const X=v=>P.l+(v-x0)/(x1-x0)*iw;
+    const maxc=Math.max(...h.normal,...h.fault);
+    const sc=v=>Math.log(1+v)/Math.log(1+maxc);   // log scale so rare faults show
+    const Y=v=>P.t+(1-sc(v))*ih;
+    const bw=iw/n;
+    let bars='';
+    for(let i=0;i<n;i++){
+      const bx=P.l+i*bw;
+      const nh=P.t+ih-Y(h.normal[i]), fh=P.t+ih-Y(h.fault[i]);
+      bars+=`<rect x="${(bx+1).toFixed(1)}" y="${Y(h.normal[i]).toFixed(1)}" width="${(bw-2).toFixed(1)}" height="${nh.toFixed(1)}" fill="var(--good)" opacity=".42"/>`;
+      bars+=`<rect x="${(bx+1).toFixed(1)}" y="${Y(h.fault[i]).toFixed(1)}" width="${(bw-2).toFixed(1)}" height="${fh.toFixed(1)}" fill="var(--crit)" opacity=".72"/>`;
+    }
+    let g='';
+    [0.35,0.45,0.55,0.65,0.75].forEach(t=>{ g+=`<text class="axis-t" x="${X(t)}" y="${H-22}" text-anchor="middle">${t}</text>`;});
+    [1,10,100,1000].forEach(v=>{ if(v<=maxc){ g+=`<line class="tick" x1="${P.l}" y1="${Y(v)}" x2="${P.l+iw}" y2="${Y(v)}"/>`;
+      g+=`<text class="axis-t" x="${P.l-7}" y="${Y(v)+3}" text-anchor="end">${v}</text>`; }});
+    const tx=X(thr);
+    // shade alarm zone
+    $('hist').innerHTML =
+      `<rect x="${tx}" y="${P.t}" width="${P.l+iw-tx}" height="${ih}" fill="var(--crit)" opacity=".05"/>`+
+      g+bars+
+      `<line class="axis" x1="${P.l}" y1="${P.t}" x2="${P.l}" y2="${P.t+ih}"/>`+
+      `<line class="axis" x1="${P.l}" y1="${P.t+ih}" x2="${P.l+iw}" y2="${P.t+ih}"/>`+
+      `<line x1="${tx}" y1="${P.t-2}" x2="${tx}" y2="${P.t+ih}" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="4 3"/>`+
+      `<text class="axis-t" x="${tx+5}" y="${P.t+10}" fill="var(--warn)">阈值 ${thr}</text>`+
+      `<text class="axis-t" x="${P.l+iw}" y="${P.t+10}" text-anchor="end" fill="var(--crit)">预警区 →</text>`+
+      `<text class="axis-t" x="${P.l+iw/2}" y="${H-4}" text-anchor="middle">异常分（log 计数）</text>`;
+    $('l-thr').textContent=thr;
+  })();
+
+  // ---- decision chain ----
+  const roleCls = a => a==='Planner'?'planner':a==='Forecaster'?'forecaster':'critic';
+  $('chain').innerHTML = DASH.decision_chain.map(s=>`
+    <div class="step">
+      <div class="who ${roleCls(s.agent)}"><span class="d"></span>${s.agent}</div>
+      <div class="act">${s.action}</div>
+    </div>`).join('');
+
+  // ---- top cases ----
+  const mx = Math.max(...DASH.top_cases.map(c=>c.score));
+  $('cases').innerHTML = DASH.top_cases.map(c=>`
+    <tr>
+      <td class="idx">#${c.idx}</td>
+      <td class="sc">${c.score.toFixed(4)}<div class="bar"><i style="width:${(c.score/mx*100).toFixed(0)}%"></i></div></td>
+      <td></td>
+      <td>${c.label===1
+        ? '<span class="tag fault"><span class="d"></span>故障 (真阳性)</span>'
+        : '<span class="tag ok"><span class="d"></span>正常 (误报)</span>'}</td>
+    </tr>`).join('');
+
+  // ---- footnote ----
+  $('note').innerHTML =
+    `<b>诚实口径</b>：数据类别极不平衡（故障占 7.6%），全预测「正常」的平凡基线 accuracy 即达 `+
+    `<code>${pct(k.dummy_all0_accuracy)}</code>。因此本项目以 <b>AUC ${k.auc.toFixed(4)}</b> / `+
+    `<b>Recall ${pct(k.recall)}</b> / <b>Balanced Acc ${pct(k.balanced_accuracy)}</b> 作为真实证据，`+
+    `所有数字由 <code>fault_warning.py</code> 与独立 <code>evaluate.py</code> 双脚本交叉验证，`+
+    `run_id=spec_hash=<code>${meta.run_id}</code> 可确定性复现。`;
+})();
+</script>
